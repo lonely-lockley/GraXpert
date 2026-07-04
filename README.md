@@ -2,123 +2,273 @@
 <img src="https://github.com/Steffenhir/GraXpert/blob/main/img/GraXpert_LOGO_Hauptvariante.png" width="500"/>
 </p>
 
-GraXpert is an astronomical image processing program for extracting and removing
-gradients in the background of your astrophotos.  We provide several methods traditional
-interpolation methods such as Radial Basis Functions (RBF), Splines and Kriging which require
-the user to manually select sample points in the background of the image. Our newest addition
-is an AI method which does not require any user input.
+# GraXpert macOS Metal/Core ML patch
 
-Original                     |  Gradients removed with AI
-:-------------------------:|:-------------------------:
-![Original](https://github.com/Steffenhir/GraXpert/blob/main/img/NGC7000_original.jpg)   |  ![Gradients removed](https://github.com/Steffenhir/GraXpert/blob/main/img/NGC7000_processed.jpg)
-![Original](https://github.com/Steffenhir/GraXpert/blob/main/img/LDN1235_original.jpg)   |  ![Gradients removed](https://github.com/Steffenhir/GraXpert/blob/main/img/LDN1235_processed.jpg)
+This fork is a local macOS patch for running GraXpert AI models through Apple
+Core ML on modern Apple Silicon Macs. The goal is simple: keep the excellent
+GraXpert app, but let macOS use the GPU/Apple Neural Engine for model inference
+instead of falling back to slow CPU-only ONNX Runtime paths.
 
+The original project lives here:
 
-**Homepage:** [https://www.graxpert.com](https://www.graxpert.com)  
-**Download:** [https://github.com/Steffenhir/GraXpert/releases/latest](https://github.com/Steffenhir/GraXpert/releases/latest)
+- Homepage: https://www.graxpert.com
+- Original repository: https://github.com/Steffenhir/GraXpert
+- Official releases: https://github.com/Steffenhir/GraXpert/releases/latest
 
-# Installation
-You can download the latest official release of GraXpert [here](https://github.com/Steffenhir/GraXpert/releases/latest). Select the correct version for your operating system. For macOS, we provide different versions
-for Intel processors (x86_64) and for apple silicon (arm64).
+Please use the official GraXpert releases if you want the upstream app. Use this
+fork if you want a local macOS build that runs converted `*-metal` model folders
+through Core ML.
 
-**Windows:** After downloading the .exe file, you should be able to start it directly. \
-**Linux:** Before you can start GraXpert, you have to make it executable by running ```chmod u+x ./GraXpert-linux``` \
-**macOS:** After opening the .dmg file, simply drag the GraXpert icon into the applications folder. GraXpert can now be started from the applications folder.
+## How It Works
 
-# Command-Line Usage
-GraXpert comes with a graphical user interface. However, the AI method which does not need the selection of any background sample points can also be executed from the command line.
-Here are the available command-line arguments and their descriptions:
+The converter scans GraXpert model directories, finds `model.onnx`, and creates
+sibling Core ML model folders that appear as separate local model versions:
 
-- -cmd [image_operation]: This flag indicates which AI model to use. Options are "background-extraction" (default) or "denoising".
-- filename: The path of the unprocessed image (required).
-- -cli: This flag always has to be added when using the command line integration of GraXpert. Otherwise, the GUI will start and open the specified file name.
-- -output [output_file_name]: Specify the name of the output image (without file ending). Otherwise the image will be saved with the suffix '_GraXpert' added to the original file name.
-- -preferences_file: Allows GraXpert commandline to run all extraction methods based on a preferences file that contains background grid points.
-- -gpu: Set to 'false' in order to disable gpu acceleration during AI inference, otherwise set to 'true' to enable it.
-- -ai_version [version]: Specify the version of the AI model to use. If not provided, it defaults to the latest available version. You can choose from locally available versions and remotely available versions.
-
-Specific commands to each operation:
-
-Background Extraction:
-- -correction [type]: Select the background correction method. Options are "Subtraction" (default) or "Division."
-- -smoothing [strength]: Adjust the strength of smoothing, ranging from 0.0 (no smoothing) to 1 (maximum smoothing).
-- -bg: Also save the generated background model.
-
-Denoising:
-- -strength [value]: Adjust the strength of denoising, ranging from 0.0 (minimum) to 1 (maximum). Default: "0.5".
-- -batch_size [value]: Number of image tiles which Graxpert will denoise in parallel. Be careful: increasing this value might result in out-of-memory errors. Valid Range: 1..32, default: "4".
-
-## Examples
-The following examples show how GraXpert can be used from the command line in Windows. For Linux and macOS, you have to do the following replacements:
-
-**Linux:** Replace GraXpert-win64.exe by GraXpert-linux \
-**macOS:** Replace GraXpert-win64.exe by GraXpert.app/Contents/MacOS/GraXpert
-
-Basic Usage:
-```
-GraXpert-win64.exe my_image.fits -cli
+```text
+denoise-ai-models/
+  3.0.2/
+    model.onnx
+  3.0.2-metal/
+    model.mlpackage/
 ```
 
-Specify AI Model Version '1.1', correction type 'Division', smoothing '0.1', and save background model:
-```
-GraXpert-win64.exe my_image.fits -cli -ai_version 1.1 -correction Division -smoothing 0.1 -bg
-```
+Runtime behavior:
 
-# Installation for Developers
-This guide will help you get started with development of GraXpert on Windows, Linux, and macOS. Follow these steps to clone the repository, create a virtual environment with Python, install the required packages, and run GraXpert from the source code.
+- normal versions such as `3.0.2` keep using `model.onnx`;
+- metal versions such as `3.0.2-metal` use `model.mlpackage`;
+- deleting the `*-metal` folder or selecting the non-metal model returns you to
+  upstream behavior.
 
-## Clone the repository
-Open your terminal or command prompt and use git to clone the GraXpert repository:
-```
-git clone https://github.com/Steffenhir/GraXpert
+The converter works with the same local model layout GraXpert already uses:
+
+- Background Extraction models
+- Denoise models
+- Object Deconvolution models
+- Stars Deconvolution models, when downloaded locally
+
+## Why This Exists
+
+GraXpert already has an “AI Hardware Acceleration” switch, but on macOS the
+standard ONNX Runtime path can still be much slower than native Core ML. A user
+reported a large speedup in the upstream issue tracker after converting the
+denoise ONNX model to Core ML and calling `MLModel.predict()` directly:
+
+https://github.com/Steffenhir/GraXpert/issues/252
+
+This fork turns that idea into a repeatable local workflow.
+
+## Requirements
+
+Recommended target:
+
+- Apple Silicon Mac
+- macOS with Homebrew
+- Python 3.12 for the converter
+- GraXpert AI models already downloaded locally
+
+Python 3.12 matters for conversion. Newer Python versions may install
+`coremltools` without native modules needed to save `mlprogram` packages.
+
+## Quick Start
+
+Clone this fork:
+
+```bash
+git clone git@github.com:lonely-lockley/GraXpert.git
 cd GraXpert
+git switch macos-metal-coreml
 ```
 
-## Setting up a Virtual Environment
-We recommend using a virtual environment to isolate the project's dependencies. Ensure you have Python>=3.10 installed on your system before proceeding. Here's how to set up a virtual environment with Python:
-Windows:
-```
-# Create a new virtual environment with Python 3.10
-python -m venv graxpert-env
+Install Python 3.12 and create the converter environment:
 
-# Activate the virtual environment
-graxpert-env\Scripts\activate
+```bash
+brew install python@3.12
+/opt/homebrew/bin/python3.12 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install --no-user -r requirements-coreml-converter.txt
 ```
 
-Linux and macOS:
-```
-# Create a new virtual environment with Python 3.10
-python3 -m venv graxpert-env
+Make sure GraXpert has downloaded the original ONNX models. The easiest route is
+to run the official GraXpert once, select/install the AI models you want, then
+close it. The models normally live under:
 
-# Activate the virtual environment
-source graxpert-env/bin/activate
-```
-
-## Install required packages
-All the requirements can be found in the requirements.txt file. You can install them with:
-
-Windows and Linux:
-```
-pip install -r requirements.txt
+```text
+$HOME/Library/Application Support/GraXpert/bge-ai-models
+$HOME/Library/Application Support/GraXpert/denoise-ai-models
+$HOME/Library/Application Support/GraXpert/deconvolution-object-ai-models
+$HOME/Library/Application Support/GraXpert/deconvolution-stars-ai-models
 ```
 
-macOS:
-```
-pip3 install -r requirements.txt
+Convert every local model found under GraXpert’s application-support directory:
 
-"""
-For macOS, we have to install tkinter separately.
-We use the version provided by brew because it is newer
-and solves issues with macOS Sonoma. Please use the version matching with your Python version.
-"""
-brew install python-tk@3.10
+```bash
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert"
 ```
 
-## Running GraXpert
-Once you have set up the virtual environment and installed the required packages, you can start GraXpert:
+Preview what will be generated without writing anything:
 
+```bash
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert" \
+  --dry-run
 ```
-python -m graxpert.main
+
+Overwrite existing converted packages:
+
+```bash
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert" \
+  --overwrite
 ```
 
+## Converting Individual Model Roots
 
+You can also convert one model family at a time:
+
+```bash
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert/denoise-ai-models"
+
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert/bge-ai-models"
+
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert/deconvolution-object-ai-models"
+
+.venv/bin/python tools/convert_models_to_coreml.py \
+  "$HOME/Library/Application Support/GraXpert/deconvolution-stars-ai-models"
+```
+
+By default, the converter creates sibling `*-metal` folders. If you want to put
+`model.mlpackage` next to `model.onnx` instead, use:
+
+```bash
+.venv/bin/python tools/convert_models_to_coreml.py "/path/to/model-root" --in-place
+```
+
+## Running GraXpert From Source
+
+Install the app dependencies into the same venv:
+
+```bash
+brew install python-tk@3.12
+.venv/bin/python -m pip install --no-user -r requirements.txt
+.venv/bin/python -m pip install --no-user onnxruntime
+```
+
+The public repository does not include the private upstream S3 credentials file.
+For local/offline use with already downloaded models, create a stub:
+
+```bash
+cat > graxpert/s3_secrets.py <<'PY'
+endpoint = ""
+ro_access_key = ""
+ro_secret_key = ""
+bucket_name = ""
+bge_bucket_name = ""
+denoise_bucket_name = ""
+deconvolution_object_bucket_name = ""
+deconvolution_stars_bucket_name = ""
+PY
+```
+
+Run the GUI:
+
+```bash
+.venv/bin/python -m graxpert.main
+```
+
+If remote model listing is unavailable, the app can still use local model
+folders found in `~/Library/Application Support/GraXpert/...`.
+
+## Building a macOS App Bundle
+
+Install build tools:
+
+```bash
+.venv/bin/python -m pip install --no-user pyinstaller setuptools wheel
+```
+
+Build the Apple Silicon app bundle:
+
+```bash
+.venv/bin/pyinstaller ./GraXpert-macos-arm64.spec
+```
+
+The resulting app is created under:
+
+```text
+dist/GraXpert.app
+```
+
+Create a local DMG if desired:
+
+```bash
+brew install create-dmg
+
+create-dmg \
+  --volname "GraXpert-macos-arm64-metal" \
+  --window-pos 50 50 \
+  --window-size 1920 1080 \
+  --icon-size 100 \
+  --icon "GraXpert.app" 200 190 \
+  --app-drop-link 400 190 \
+  "dist/GraXpert-macos-arm64-metal.dmg" \
+  "dist/GraXpert.app/"
+```
+
+This local build is not notarized. macOS Gatekeeper may warn when opening it.
+For private testing, right-click the app and choose Open, or remove quarantine
+from your own local build:
+
+```bash
+xattr -dr com.apple.quarantine dist/GraXpert.app
+```
+
+## Expected Local Model Layout
+
+After conversion, a useful local setup looks like:
+
+```text
+~/Library/Application Support/GraXpert/
+  bge-ai-models/
+    1.0.1/
+      model.onnx
+    1.0.1-metal/
+      model.mlpackage/
+  deconvolution-object-ai-models/
+    1.0.1/
+      model.onnx
+    1.0.1-metal/
+      model.mlpackage/
+  denoise-ai-models/
+    3.0.2/
+      model.onnx
+    3.0.2-metal/
+      model.mlpackage/
+```
+
+## Troubleshooting
+
+If conversion fails with `BlobWriter not loaded`, recreate the venv with Python
+3.12:
+
+```bash
+brew install python@3.12
+rm -rf .venv
+/opt/homebrew/bin/python3.12 -m venv .venv
+.venv/bin/python -m pip install --no-user -r requirements-coreml-converter.txt
+```
+
+If the app cannot import `graxpert.s3_secrets`, create the local stub shown
+above.
+
+If a converted model behaves incorrectly, delete its `*-metal` folder and select
+the original ONNX version again.
+
+## License and Upstream Credits
+
+GraXpert is developed by the GraXpert team and licensed upstream under GPL-3.0.
+The AI models have their own licenses in the `licenses/` directory. This fork is
+a local macOS acceleration patch on top of the original project.
