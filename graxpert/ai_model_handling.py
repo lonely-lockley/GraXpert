@@ -42,7 +42,7 @@ os.makedirs(denoise_ai_models_dir, exist_ok=True)
 
 # ui operations
 def list_remote_versions(bucket_name):
-    if client is None:
+    if client is None or not bucket_name:
         return []
     try:
         objects = client.list_objects(bucket_name)
@@ -71,7 +71,7 @@ def list_local_versions(ai_models_dir):
         model_dirs = [
             {"path": os.path.join(ai_models_dir, f), "version": f}
             for f in os.listdir(ai_models_dir)
-            if re.search(r"\d\.\d\.\d", f) and len(os.listdir(os.path.join(ai_models_dir, f))) > 0  # match semantic version
+            if os.path.isdir(os.path.join(ai_models_dir, f)) and re.search(r"\d+\.\d+\.\d+", f) and len(os.listdir(os.path.join(ai_models_dir, f))) > 0
         ]
         return model_dirs
     except Exception as e:
@@ -93,15 +93,29 @@ def latest_version(ai_models_dir, bucket_name):
     ai_options = set([])
     ai_options.update([rv["version"] for rv in remote_versions])
     ai_options.update(set([lv["version"] for lv in local_versions]))
-    ai_options = sorted(ai_options, key=lambda k: version.parse(k), reverse=True)
+    ai_options = sorted(ai_options, key=model_version_sort_key, reverse=True)
     return ai_options[0]
+
+
+def model_version_sort_key(model_version):
+    match = re.search(r"(\d+\.\d+\.\d+)", model_version)
+    if match is None:
+        return (version.parse("0.0.0"), False, model_version)
+
+    is_metal = model_version.endswith("-metal")
+    return (version.parse(match.group(1)), is_metal, model_version)
 
 
 def ai_model_path_from_version(ai_models_dir, local_version):
     if local_version is None:
         return None
 
-    return os.path.join(ai_models_dir, local_version, "model.onnx")
+    model_dir = os.path.join(ai_models_dir, local_version)
+    coreml_path = os.path.join(model_dir, "model.mlpackage")
+    if os.path.isdir(coreml_path):
+        return coreml_path
+
+    return os.path.join(model_dir, "model.onnx")
 
 
 def compute_orphaned_local_versions(ai_models_dir):
@@ -167,7 +181,8 @@ def download_version(ai_models_dir, bucket_name, target_version, progress=None):
 
 
 def validate_local_version(ai_models_dir, local_version):
-    return os.path.isfile(os.path.join(ai_models_dir, local_version, "model.onnx"))
+    model_dir = os.path.join(ai_models_dir, local_version)
+    return os.path.isfile(os.path.join(model_dir, "model.onnx")) or os.path.isdir(os.path.join(model_dir, "model.mlpackage"))
 
 
 def get_execution_providers_ordered(gpu_acceleration=True):

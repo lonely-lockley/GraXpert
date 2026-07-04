@@ -64,6 +64,7 @@ Recommended target:
 - Apple Silicon Mac
 - macOS with Homebrew
 - Python 3.12 for the converter
+- Python Tk bindings for the app UI
 - GraXpert AI models already downloaded locally
 
 Python 3.12 matters for conversion. Newer Python versions may install
@@ -82,7 +83,7 @@ git switch macos-metal-coreml
 Install Python 3.12 and create the converter environment:
 
 ```bash
-brew install python@3.12
+brew install python@3.12 python-tk@3.12
 /opt/homebrew/bin/python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install --no-user -r requirements-coreml-converter.txt
@@ -149,10 +150,10 @@ By default, the converter creates sibling `*-metal` folders. If you want to put
 
 ## Running GraXpert From Source
 
-Install the app dependencies into the same venv:
+Install the app dependencies into the same venv. Keep `coremltools` installed in
+this environment; the runtime uses it to load `model.mlpackage` folders.
 
 ```bash
-brew install python-tk@3.12
 .venv/bin/python -m pip install --no-user -r requirements.txt
 .venv/bin/python -m pip install --no-user onnxruntime
 ```
@@ -182,6 +183,12 @@ Run the GUI:
 If remote model listing is unavailable, the app can still use local model
 folders found in `~/Library/Application Support/GraXpert/...`.
 
+In the UI, select the converted model versions ending in `-metal`, for example:
+
+- Background Extraction: `1.0.1-metal`
+- Object Deconvolution: `1.0.1-metal`
+- Denoise: `3.0.2-metal`
+
 ## Building a macOS App Bundle
 
 Install build tools:
@@ -193,13 +200,23 @@ Install build tools:
 Build the Apple Silicon app bundle:
 
 ```bash
-.venv/bin/pyinstaller ./GraXpert-macos-arm64.spec
+env PYINSTALLER_CONFIG_DIR=build/pyinstaller-cache \
+  .venv/bin/pyinstaller -y ./GraXpert-macos-arm64.spec
 ```
 
 The resulting app is created under:
 
 ```text
 dist/GraXpert.app
+```
+
+The local patch reports itself as `3.1.0-rc2-metal-support`. You can verify the
+built app with:
+
+```bash
+dist/GraXpert.app/Contents/MacOS/GraXpert --version
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  dist/GraXpert.app/Contents/Info.plist
 ```
 
 Create a local DMG if desired:
@@ -266,6 +283,14 @@ above.
 
 If a converted model behaves incorrectly, delete its `*-metal` folder and select
 the original ONNX version again.
+
+If PyInstaller tries to write to `~/Library/Application Support/pyinstaller` and
+fails, use the `PYINSTALLER_CONFIG_DIR=build/pyinstaller-cache` build command
+shown above.
+
+The object deconvolution Core ML model may print a low-level `E5RT ... reshape`
+warning. The runtime patch uses one-by-one Core ML prediction for deconvolution
+to avoid bad batch outputs; the warning is harmless if the operation completes.
 
 ## License and Upstream Credits
 

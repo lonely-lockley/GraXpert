@@ -4,10 +4,9 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 from customtkinter import CTkFont, CTkImage, CTkLabel, CTkSwitch, CTkTextbox
-from packaging import version
 from PIL import Image
 
-from graxpert.ai_model_handling import bge_ai_models_dir, deconvolution_object_ai_models_dir, deconvolution_stars_ai_models_dir, denoise_ai_models_dir, list_local_versions, list_remote_versions
+from graxpert.ai_model_handling import bge_ai_models_dir, deconvolution_object_ai_models_dir, deconvolution_stars_ai_models_dir, denoise_ai_models_dir, list_local_versions, list_remote_versions, model_version_sort_key
 from graxpert.application.app import graxpert
 from graxpert.application.app_events import AppEvents
 from graxpert.application.eventbus import eventbus
@@ -167,7 +166,7 @@ class AdvancedFrame(RightFrameBase):
         self.bge_ai_options = set([])
         self.bge_ai_options.update([rv["version"] for rv in bge_remote_versions])
         self.bge_ai_options.update([lv["version"] for lv in bge_local_versions])
-        self.bge_ai_options = sorted(self.bge_ai_options, key=lambda k: version.parse(k), reverse=True)
+        self.bge_ai_options = sorted(self.bge_ai_options, key=model_version_sort_key, reverse=True)
 
         self.bge_ai_version = tk.StringVar(master)
         self.bge_ai_version.set("None")  # default value
@@ -183,7 +182,7 @@ class AdvancedFrame(RightFrameBase):
         self.deconvolution_object_ai_options = set([])
         self.deconvolution_object_ai_options.update([rv["version"] for rv in deconvolution_object_ai_remote_versions])
         self.deconvolution_object_ai_options.update([lv["version"] for lv in deconvolution_object_ai_local_versions])
-        self.deconvolution_object_ai_options = sorted(self.deconvolution_object_ai_options, key=lambda k: version.parse(k), reverse=True)
+        self.deconvolution_object_ai_options = sorted(self.deconvolution_object_ai_options, key=model_version_sort_key, reverse=True)
 
         self.deconvolution_object_ai_version = tk.StringVar(master)
         self.deconvolution_object_ai_version.set("None")  # default value
@@ -201,7 +200,7 @@ class AdvancedFrame(RightFrameBase):
         self.deconvolution_stars_ai_options = set([])
         self.deconvolution_stars_ai_options.update([rv["version"] for rv in deconvolution_stars_ai_remote_versions])
         self.deconvolution_stars_ai_options.update([lv["version"] for lv in deconvolution_stars_ai_local_versions])
-        self.deconvolution_stars_ai_options = sorted(self.deconvolution_stars_ai_options, key=lambda k: version.parse(k), reverse=True)
+        self.deconvolution_stars_ai_options = sorted(self.deconvolution_stars_ai_options, key=model_version_sort_key, reverse=True)
 
         self.deconvolution_stars_ai_version = tk.StringVar(master)
         self.deconvolution_stars_ai_version.set("None")  # default value
@@ -219,7 +218,7 @@ class AdvancedFrame(RightFrameBase):
         self.denoise_ai_options = set([])
         self.denoise_ai_options.update([rv["version"] for rv in denoise_remote_versions])
         self.denoise_ai_options.update([lv["version"] for lv in denoise_local_versions])
-        self.denoise_ai_options = sorted(self.denoise_ai_options, key=lambda k: version.parse(k), reverse=True)
+        self.denoise_ai_options = sorted(self.denoise_ai_options, key=model_version_sort_key, reverse=True)
 
         self.denoise_ai_version = tk.StringVar(master)
         self.denoise_ai_version.set("None")  # default value

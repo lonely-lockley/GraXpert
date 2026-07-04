@@ -14,7 +14,7 @@ a = Analysis(['./graxpert/main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['PIL._tkinter_finder', 'tkinter'],
+    hiddenimports=['PIL._tkinter_finder', 'tkinter', 'coremltools'],
     hookspath=['./releng'],
     hooksconfig={},
     runtime_hooks=[],
@@ -58,7 +58,7 @@ app = BUNDLE(coll,
             icon='./img/Icon.ico',
             bundle_identifier=None,
             info_plist={
-                'CFBundleShortVersionString': 'RELEASE (SNAPSHOT)',
+                'CFBundleShortVersionString': '3.1.0-rc2-metal-support',
                 'NSHighResolutionCapable': 'True'
             }
             )

@@ -8,12 +8,11 @@ from multiprocessing import shared_memory
 
 import cv2
 import numpy as np
-import onnxruntime as ort
 from astropy.stats import sigma_clipped_stats
 from pykrige.ok import OrdinaryKriging
 from scipy import interpolate, linalg
 
-from graxpert.ai_model_handling import get_execution_providers_ordered
+from graxpert.ai_inference import create_inference_session
 from graxpert.mp_logging import get_logging_queue, worker_configurer
 from graxpert.parallel_processing import executor
 from graxpert.radialbasisinterpolation import RadialBasisInterpolation
@@ -71,13 +70,8 @@ def extract_background(in_imarray, background_points, interpolation_type, smooth
         if progress is not None:
             progress.update(8)
 
-        providers = get_execution_providers_ordered(ai_gpu_acceleration)
-        session = ort.InferenceSession(ai_path, providers=providers)
-
-        logging.info(f"Providers : {providers}")
-        logging.info(f"Used providers : {session.get_providers()}")
-
-        background = session.run(None, {"gen_input_image": np.expand_dims(imarray_shrink, axis=0)})[0][0]
+        session = create_inference_session(ai_path, ai_gpu_acceleration)
+        background = session.run({"gen_input_image": np.expand_dims(imarray_shrink, axis=0)})[0]
 
         background = background / 0.04 * mad + median
 

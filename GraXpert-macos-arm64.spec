@@ -8,7 +8,7 @@ a = Analysis(['./graxpert/main.py'],
     pathex=[],
     binaries=[],
     datas=[('./img/*', './img/'), ('./graxpert-dark-blue.json', './')] + copy_metadata('xisf'),
-    hiddenimports=['PIL._tkinter_finder', 'tkinter'],
+    hiddenimports=['PIL._tkinter_finder', 'tkinter', 'coremltools'],
     hookspath=['./releng'],
     hooksconfig={},
     runtime_hooks=[],
@@ -52,7 +52,7 @@ app = BUNDLE(coll,
             icon='./img/Icon.ico',
             bundle_identifier=None,
             info_plist={
-                'CFBundleShortVersionString': 'Beta-Release (v1.0.6cAI)',
+                'CFBundleShortVersionString': '3.1.0-rc2-metal-support',
                 'NSHighResolutionCapable': 'True'
             }
             )

@@ -15,7 +15,7 @@ import sys
 
 from packaging import version
 
-from graxpert.ai_model_handling import bge_ai_models_dir, denoise_ai_models_dir, deconvolution_object_ai_models_dir, deconvolution_stars_ai_models_dir, list_local_versions, list_remote_versions
+from graxpert.ai_model_handling import bge_ai_models_dir, denoise_ai_models_dir, deconvolution_object_ai_models_dir, deconvolution_stars_ai_models_dir, list_local_versions, list_remote_versions, model_version_sort_key
 from graxpert.mp_logging import configure_logging
 from graxpert.s3_secrets import bge_bucket_name, denoise_bucket_name, deconvolution_object_bucket_name, deconvolution_stars_bucket_name
 from graxpert.version import release as graxpert_release
@@ -27,7 +27,7 @@ def collect_available_versions(ai_models_dir, bucket_name):
     try:
         available_local_versions = sorted(
             [v["version"] for v in list_local_versions(ai_models_dir)],
-            key=lambda k: version.parse(k),
+            key=model_version_sort_key,
             reverse=True,
         )
     except Exception as e:
@@ -46,30 +46,30 @@ def collect_available_versions(ai_models_dir, bucket_name):
     return (available_local_versions, available_remote_versions)
 
 
-def bge_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$")):
-    return version_type(bge_ai_models_dir, bge_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$"))
+def bge_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$")):
+    return version_type(bge_ai_models_dir, bge_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$"))
 
 
-def denoise_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$")):
-    return version_type(denoise_ai_models_dir, denoise_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$"))
+def denoise_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$")):
+    return version_type(denoise_ai_models_dir, denoise_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$"))
 
 
-def deconv_obj_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$")):
-    return version_type(deconvolution_object_ai_models_dir, deconvolution_object_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$"))
+def deconv_obj_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$")):
+    return version_type(deconvolution_object_ai_models_dir, deconvolution_object_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$"))
 
 
-def deconv_stellar_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$")):
-    return version_type(deconvolution_stars_ai_models_dir, deconvolution_stars_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$"))
+def deconv_stellar_version_type(arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$")):
+    return version_type(deconvolution_stars_ai_models_dir, deconvolution_stars_bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$"))
 
 
-def version_type(ai_models_dir, bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+$")):
+def version_type(ai_models_dir, bucket_name, arg_value, pat=re.compile(r"^\d+\.\d+\.\d+(-[A-Za-z0-9_.]+)?$")):
 
     available_versions = collect_available_versions(ai_models_dir, bucket_name)
     available_local_versions = available_versions[0]
     available_remote_versions = available_versions[1]
 
     if not pat.match(arg_value):
-        raise argparse.ArgumentTypeError("invalid version, expected format: n.n.n")
+        raise argparse.ArgumentTypeError("invalid version, expected format: n.n.n or n.n.n-suffix")
     if arg_value not in available_local_versions and arg_value not in available_remote_versions:
         raise argparse.ArgumentTypeError(
             "provided version neither found locally or remotely; available locally: [{}], available remotely: [{}]".format(

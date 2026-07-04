@@ -2,9 +2,8 @@ import copy
 import logging
 
 import numpy as np
-import onnxruntime as ort
 
-from graxpert.ai_model_handling import get_execution_providers_ordered
+from graxpert.ai_inference import create_inference_session
 from graxpert.application.app_events import AppEvents
 from graxpert.application.eventbus import eventbus
 
@@ -65,11 +64,7 @@ def deconvolve(image, ai_path, strength, psfsize, batch_size=4, window_size=512,
 
     output = copy.deepcopy(image)
 
-    providers = get_execution_providers_ordered(ai_gpu_acceleration)
-    session = ort.InferenceSession(ai_path, providers=providers)
-
-    logging.info(f"Available inference providers : {providers}")
-    logging.info(f"Used inference providers : {session.get_providers()}")
+    session = create_inference_session(ai_path, ai_gpu_acceleration, force_one_by_one=True)
 
     cancel_flag = False
 
@@ -130,9 +125,9 @@ def deconvolve(image, ai_path, strength, psfsize, batch_size=4, window_size=512,
         strenght_p = np.full(shape=(input_tiles.shape[0], 1), fill_value=strength, dtype=np.float32)
         conds = np.concatenate([sigma, strenght_p], axis=-1)
         if type == "Obj" and "1.0.0" in ai_path:
-            session_result = session.run(None, {"gen_input_image": input_tiles, "sigma": sigma, "strenght": strenght_p})[0]
+            session_result = session.run({"gen_input_image": input_tiles, "sigma": sigma, "strenght": strenght_p})
         else:
-            session_result = session.run(None, {"gen_input_image": input_tiles, "params": conds})[0]
+            session_result = session.run({"gen_input_image": input_tiles, "params": conds})
         for e in session_result:
             output_tiles.append(e)
 

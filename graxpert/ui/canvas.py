@@ -82,6 +82,11 @@ class Canvas(CTkFrame):
         self.canvas.bind("<B1-Motion>", self.on_mouse_move_left)  # Left Mouse Button Drag
         self.canvas.bind("<Motion>", self.on_mouse_move)  # Mouse move
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)  # Mouse Wheel
+        for sequence in ("<Magnify>", "<Pinch>"):  # Pinch zoom macOS/Tk variants
+            try:
+                self.canvas.bind(sequence, self.on_magnify)
+            except tk.TclError:
+                pass
         self.canvas.bind("<Button-4>", self.on_mouse_wheel)  # Mouse Wheel Linux
         self.canvas.bind("<Button-5>", self.on_mouse_wheel)  # Mouse Wheel Linux
 
@@ -404,10 +409,26 @@ class Canvas(CTkFrame):
     def on_mouse_wheel(self, event=None):
         if graxpert.images.get(self.display_type.get()) is None:
             return
-        if event.delta > 0 or event.num == 4:
+        delta = getattr(event, "delta", 0)
+        button = getattr(event, "num", None)
+        if delta > 0 or button == 4:
             graxpert.scale_at(6 / 5, event.x, event.y)
         else:
             graxpert.scale_at(5 / 6, event.x, event.y)
+        self.redraw_image()
+
+    def on_magnify(self, event=None):
+        if graxpert.images.get(self.display_type.get()) is None:
+            return
+        delta = getattr(event, "delta", 0)
+        scale = getattr(event, "scale", None)
+        if scale is None:
+            scale = 1 + delta
+        if scale <= 0:
+            return
+        x = getattr(event, "x", self.canvas.winfo_pointerx() - self.canvas.winfo_rootx())
+        y = getattr(event, "y", self.canvas.winfo_pointery() - self.canvas.winfo_rooty())
+        graxpert.scale_at(scale, x, y)
         self.redraw_image()
 
     def on_reset_points_begin(self, event=None):
